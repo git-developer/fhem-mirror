@@ -89,6 +89,7 @@ sub Define ($$) {
 	my ($self,$hash,$def) = @_;
 	my @a = split("[ \t][ \t]*", $def);
 
+  $self->{hash} = $hash;
 	$self->{name} = $hash->{NAME};
 
 	#-- check syntax
@@ -96,9 +97,11 @@ sub Define ($$) {
 		return "OWX_SER: Syntax error - must be define <name> OWX <serial-device>"
 	}
 	my $dev = $a[2];
-    
-  #-- when the specified device name contains @<digits> already, use it as supplied
-  if ( $dev !~ m/\@\d*/ ){
+  
+  #-- when the specified device name contains @<digits> already or is a notwork-device, use it as supplied
+  if ( $dev =~ m/\@\d*/ or $dev =~ m/^(.+):([0-9]+)$/ ) {
+    $hash->{DeviceName} = $dev;
+  } else {
     $hash->{DeviceName} = $dev."\@9600";
   }
   $dev = split('@',$dev);
@@ -257,34 +260,40 @@ sub pt_discover($) {
 ########################################################################################
 
 sub initialize($) {
-  my ($self,$hash) = @_;
+  my ($self) = @_;
   my ($i,$j,$k,$l,$res,$ret,$ress);
   #-- Second step in case of serial device: open the serial device to test it
+  my $hash = $self->{hash};
   my $msg = "OWX_SER: Serial device $hash->{DeviceName}";
   main::DevIo_OpenDev($hash,0,undef);
-  my $hwdevice = $hash->{USBDev};
-  if(!defined($hwdevice)){
-    die $msg." not defined: $!";
+  if (my $hwdevice = $hash->{USBDev}) {
+
+    $hwdevice->reset_error();
+    $hwdevice->baudrate(9600);
+    $hwdevice->databits(8);
+    $hwdevice->parity('none');
+    $hwdevice->stopbits(1);
+    $hwdevice->handshake('none');
+    $hwdevice->write_settings;
+    #-- store with OWX device
+    $self->{hwdevice}   = $hwdevice;
+    
+    $self->{devicetype} = "usb";
+  
+    #force master reset in DS2480
+    $hwdevice->purge_all;
+    $hwdevice->baudrate(4800);
+    $hwdevice->write_settings;
+    $hwdevice->write(sprintf("\x00"));
+    select(undef,undef,undef,0.5);
+  } elsif (my $hwdevice = $hash->{TCPDev}) {
+    #-- store with OWX device
+    $self->{hwdevice}   = $hwdevice;
+    $self->{devicetype} = "network";
   } else {
-    main::Log3($hash->{NAME},1,$msg." defined");
+    die $msg." not defined: $!";
   }
-
-  $hwdevice->reset_error();
-  $hwdevice->baudrate(9600);
-  $hwdevice->databits(8);
-  $hwdevice->parity('none');
-  $hwdevice->stopbits(1);
-  $hwdevice->handshake('none');
-  $hwdevice->write_settings;
-  #-- store with OWX device
-  $self->{hwdevice}   = $hwdevice;
-
-  #force master reset in DS2480
-  $hwdevice->purge_all;
-  $hwdevice->baudrate(4800);
-  $hwdevice->write_settings;
-  $hwdevice->write(sprintf("\x00"));
-  select(undef,undef,undef,0.5);
+  main::Log3($hash->{NAME},1,$msg." defined");
 
   #-- Third step detect busmaster on serial interface
   
@@ -371,8 +380,8 @@ sub initialize($) {
 }
 
 sub Disconnect($) {
-	my ($self,$hash) = @_;
-	main::DevIo_Disconnected($hash);
+	my ($self) = @_;
+	main::DevIo_Disconnected($self->{hash});
 	delete $self->{hwdevice};
 	$self->{interface} = "serial";
 }

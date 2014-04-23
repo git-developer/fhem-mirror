@@ -94,17 +94,21 @@ sub query ($$$) {
   my $hwdevice = $serial->{hwdevice};
   
   die "OWX_DS2480: query with no hwdevice" unless (defined $hwdevice);
-  
-  $hwdevice->baudrate($serial->{baud});
-  $hwdevice->write_settings;
 
   if( $main::owx_async_debug > 2){
     main::Log3($serial->{name},3, "OWX_DS2480.query sending out: ".unpack ("H*",$cmd));
   }
   
-  my $count_out = $hwdevice->write($cmd);
-
-  die "OWX_DS2480: Write incomplete ".(defined $count_out ? $count_out : "undefined")." not equal ".(length($cmd))."" if (!(defined $count_out) or ($count_out ne length($cmd)));
+  if ($serial->{devicetype} eq "usb") {
+    $hwdevice->baudrate($serial->{baud});
+    $hwdevice->write_settings;
+  
+    my $count_out = $hwdevice->write($cmd);
+  
+    die "OWX_DS2480: Write incomplete ".(defined $count_out ? $count_out : "undefined")." not equal ".(length($cmd))."" if (!(defined $count_out) or ($count_out ne length($cmd)));
+  } else {
+    main::DevIo_SimpleWrite($serial->{hash},$cmd);
+  }
 
   $serial->{retlen} += $retlen;
 }
@@ -128,9 +132,20 @@ sub read() {
   my $hwdevice = $serial->{hwdevice};
   return undef unless (defined $hwdevice);
 
-  #-- read the data - looping for slow devices suggested by Joachim Herold
-  my ($count_in, $string_part) = $hwdevice->read(255);  
-  return undef if (not defined $count_in or not defined $string_part);
+  my ($count_in, $string_part);
+  
+  if ($serial->{devicetype} eq "usb") {
+    #-- read the data - looping for slow devices suggested by Joachim Herold
+    ($count_in, $string_part) = $hwdevice->read(255);  
+    return undef if (not defined $count_in or not defined $string_part);
+  } elsif ($serial->{devicetype} eq "network") {
+    my $res = sysread($hwdevice, $string_part, 256);
+    $string_part = "" if(!defined($res));
+    $count_in = length($string_part);
+  } else {
+    die "$serial->{name}: illegal devicetype in read";
+  }
+  
   $serial->{string_in} .= $string_part;                            
   $serial->{retcount} += $count_in;		
   $serial->{num_reads}++;
@@ -153,7 +168,18 @@ sub response_ready() {
 sub start_query() {
   my ($serial) = @_;
   #read and discard any outstanding data from previous commands:
-  while($serial->read(255)) {};
+  my $hwdevice = $serial->{hwdevice};
+  if ($serial->{devicetype} eq "usb") {
+    my ($count_in, $buf);
+    do {
+      ($count_in, $buf) = $hwdevice->(255);
+    } while ($count_in and $buf);
+  } elsif ($serial->{devicetype} eq "network") {
+    my ($buf,$res);
+    do {
+      $res = sysread($hwdevice, $buf, 256);
+    } while ($buf and $res);
+  }
 
   $serial->{string_in} = "";
   $serial->{num_reads} = 0;

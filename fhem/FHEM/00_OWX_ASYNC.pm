@@ -192,11 +192,11 @@ sub OWX_ASYNC_Define ($$) {
   my $owx;
   #-- First step - different methods
   #-- check if we have a serial device attached
-  if ( $dev =~ m|$SER_regexp|i){  
+  if ( $dev =~ m|$SER_regexp|i or $dev =~ m/^(.+):([0-9]+)$/ ){  
     require "$main::attr{global}{modpath}/FHEM/OWX_SER.pm";
     $owx = OWX_SER->new();
   #-- check if we have a COC/CUNO interface attached  
-  }elsif( (defined $main::defs{$dev} && (defined( $main::defs{$dev}->{VERSION} ) ? $main::defs{$dev}->{VERSION} : "") =~ m/CSM|CUNO/ )){
+  } elsif ( (defined $main::defs{$dev} && (defined( $main::defs{$dev}->{VERSION} ) ? $main::defs{$dev}->{VERSION} : "") =~ m/CSM|CUNO/ )){
     require "$main::attr{global}{modpath}/FHEM/OWX_CCC.pm";
     $owx = OWX_CCC->new();
   #-- check if we are connecting to Arduino (via FRM):
