@@ -117,14 +117,14 @@ COMMAND_HANDLER: {
       my $rawInt = join(" ", @$rawData);
       my $rawHex = join(" ", map { sprintf "%04X", $_ } @$rawData);
 
-      Log3 $hash, 4, "message: " . join(", ", @$value);
+      Log3 $hash, 4, "$name: message = " . join(", ", @$value);
       if ($main::attr{$name}{"verbose"} > 3) {
         my $s = $rawHex;
         my $rawBlock = "";
         while ($s) {
           $rawBlock .= substr($s, 0, 40, '')."\n";
         }
-        Log3 $hash, 4, "raw data:\n" . $rawBlock;
+        Log3 $hash, 4, "$name: raw data = \n" . $rawBlock;
       }
       
       readingsBeginUpdate($hash);
@@ -141,7 +141,7 @@ COMMAND_HANDLER: {
     };
     defined($attrName) and do {
       $value = shift @$value;
-      Log3 $name, 4, "$attrName: $value";
+      Log3 $name, 4, "$name: $attrName = $value";
 
       $main::attr{$name}{$attrName}=$value;
       # TODO refresh web GUI somehow?
