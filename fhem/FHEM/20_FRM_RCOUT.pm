@@ -43,6 +43,8 @@ my %tristateBits = (
 
 my @attributes = ( keys %rcswitchParameters, keys %moduleParameters );
 
+my @clients = qw( IT );
+
 sub
 FRM_RCOUT_Initialize($)
 {
@@ -56,6 +58,9 @@ FRM_RCOUT_Initialize($)
   $hash->{AttrFn}    = "FRM_RCOUT_Attr";
   
   $hash->{AttrList}  = "IODev " . join(" ", @attributes) . " $main::readingFnAttributes";
+
+  $hash->{Clients} = join (':', @clients);
+
   main::LoadModule("FRM");
 }
 
@@ -115,7 +120,7 @@ FRM_RCOUT_Attr($$$$) {
   return undef;
 }
 
-# The RCSwith parameters are not applied within this module; instead, they are
+# The RCSwitch parameters are not applied within this module; instead, they are
 # sent to the microcontroller. When the change was successful, a response
 # message will arrive in the observer sub.
 sub FRM_RCOUT_apply_attribute {
