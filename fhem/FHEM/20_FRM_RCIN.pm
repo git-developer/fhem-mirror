@@ -118,14 +118,13 @@ COMMAND_HANDLER: {
       my $rawHex = join(" ", map { sprintf "%04X", $_ } @$rawData);
 
       Log3 $hash, 4, "$name: message = " . join(", ", @$value);
-      my $verbose = $main::attr{$name}{"verbose"};
-      if (defined($verbose) && $verbose > 3) {
+      if ($main::attr{$name}{"verbose"} > 3) {
         my $s = $rawHex;
         my $rawBlock = "";
         while ($s) {
           $rawBlock .= substr($s, 0, 40, '')."\n";
         }
-        Log3($hash, 4, "$name: raw data = \n" . $rawBlock) if $rawBlock ne "";
+        Log3 $hash, 4, "$name: raw data = \n" . $rawBlock;
       }
       
       readingsBeginUpdate($hash);
